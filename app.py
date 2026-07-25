@@ -188,7 +188,7 @@ Answer based only on the documents provided. If you cannot find the answer, say 
 
 @app.get("/")
 async def root():
-    return {
+    return FileResponse("index.html")
         "message": "🌿 WildEye RAG System - Forest Department Documents",
         "version": "1.0.0",
         "endpoints": {
