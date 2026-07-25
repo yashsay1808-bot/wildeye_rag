@@ -187,7 +187,7 @@ Answer based only on the documents provided. If you cannot find the answer, say 
 # ============================================================
 
 @app.get("/stats")
-async def root():
+async def get_stats():
     return {
         "message": "🌿 WildEye RAG System - Forest Department Documents",
         "version": "1.0.0",
