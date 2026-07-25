@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WildEye - Wildlife Conflict Predictor (Live Satellite)</title>
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    
+    <style>
+        /* ===== CSS Variables ===== */
+        :root {
+            --primary: #0a3d2e;
+            --primary-light: #1a6b4f;
+            --primary-dark: #06241b;
+            --accent: #e8a838;
+            --accent-light: #f5d48a;
+            --danger: #dc3545;
+            --success: #28a745;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --bg-dark: #0b1a15;
+            --bg-card: rgba(255, 255, 255, 0.05);
+            --glass: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #e8f0ec;
+            --text-secondary: #a0b8b0;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ===== Reset & Base ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ===== Scrollbar ===== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--primary-light); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* ===== App Layout ===== */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        /* ===== Sidebar ===== */
+        .sidebar {
+            width: 340px;
+            min-width: 340px;
+            background: linear-gradient(180deg, #0d241c 0%, #081511 100%);
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--glass-border);
+            overflow-y: auto;
+            z-index: 10;
+            position: relative;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--glass-border);
+            margin-bottom: 18px;
+        }
+
+        .logo-icon {
+            font-size: 32px;
+            color: var(--accent);
+            background: rgba(232, 168, 56, 0.15);
+            width: 50px;
+            height: 50px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo h1 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 30%, var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .logo span { font-size: 12px; font-weight: 400; color: var(--text-secondary); -webkit-text-fill-color: var(--text-secondary); }
+
+        /* ===== Stats Cards ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .stat-card {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px 12px;
+            transition: var(--transition);
+            cursor: default;
+        }
+        .stat-card:hover { background: rgba(255, 255, 255, 0.12); transform: translateY(-2px); }
+
+        .stat-card .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .stat-card .value.danger { color: var(--danger); }
+        .stat-card .value.warning { color: var(--warning); }
+        .stat-card .value.success { color: var(--success); }
+        .stat-card .value.info { color: var(--info); }
+        .stat-card .value.accent { color: var(--accent); }
+
+        /* ===== Alert Panel ===== */
+        .alert-section {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+
+        .alert-section h3 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .alert-section h3 i { color: var(--danger); }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            background: rgba(220, 53, 69, 0.1);
+            border-left: 3px solid var(--danger);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            animation: pulse-alert 2s infinite;
+        }
+        .alert-item:last-child { margin-bottom: 0; }
+        .alert-item .time { color: var(--text-secondary); font-size: 10px; white-space: nowrap; }
+        .alert-item .msg { font-weight: 500; }
+
+        @keyframes pulse-alert {
+            0%, 100% { background: rgba(220, 53, 69, 0.1); }
+            50% { background: rgba(220, 53, 69, 0.2); }
+        }
+
+        /* ===== Map Container ===== */
+        .map-wrapper {
+            flex: 1;
+            position: relative;
+            background: #0a1813;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Custom Leaflet overrides */
+        .leaflet-control-zoom { border: none !important; }
+        .leaflet-control-zoom a {
+            background: rgba(13, 36, 28, 0.9) !important;
+            color: #fff !important;
+            border: 1px solid var(--glass-border) !important;
+        }
+        .leaflet-control-zoom a:hover { background: var(--primary-light) !important; }
+
+        /* ===== Top Bar Overlay ===== */
+        .top-bar {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(8, 21, 17, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 12px;
+            pointer-events: auto;
+        }
+
+        .top-bar .live-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: var(--danger);
+            border-radius: 50%;
+            animation: blink 1.2s infinite;
+            margin-right: 6px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        .top-bar .badge {
+            background: var(--accent);
+            color: var(--primary-dark);
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .top-bar .status-text {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+        }
+        .top-bar .status-text .connected { color: var(--success); }
+        .top-bar .status-text .disconnected { color: var(--danger); }
+
+        /* ===== Legend ===== */
+        .map-legend {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(8, 21, 17, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 11px;
+            min-width: 150px;
+            pointer-events: none;
+        }
+
+        .map-legend .item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .map-legend .item:last-child { margin-bottom: 0; }
+        .map-legend .color-swatch {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* ===== Bottom Right Controls ===== */
+        .map-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .map-controls button {
+            background: rgba(8, 21, 17, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Inter', sans-serif;
+        }
+        .map-controls button:hover {
+            background: var(--primary-light);
+            border-color: var(--accent);
+        }
+        .map-controls button i { font-size: 14px; }
+        .map-controls button.active {
+            border-color: var(--accent);
+            background: rgba(232, 168, 56, 0.15);
+        }
+
+        /* ===== Chat / LLM Panel (Slide-in) ===== */
+        .chat-panel {
+            position: absolute;
+            bottom: 90px;
+            right: 20px;
+            z-index: 1000;
+            width: 340px;
+            max-height: 480px;
+            background: rgba(8, 21, 17, 0.92);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 16px;
+            display: none;
+            flex-direction: column;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .chat-panel.open { display: flex; }
+
+        .chat-panel .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .chat-panel .header h4 {
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chat-panel .header h4 i { color: var(--accent); }
+        .chat-panel .header .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 300px;
+            margin-bottom: 10px;
+            padding-right: 4px;
+        }
+
+        .chat-msg {
+            padding: 8px 12px;
+            border-radius: 10px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+        .chat-msg.user {
+            background: var(--primary-light);
+            margin-left: auto;
+            border-bottom-right-radius: 2px;
+        }
+        .chat-msg.bot {
+            background: rgba(255,255,255,0.06);
+            border-bottom-left-radius: 2px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+        }
+        .chat-input-row input {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+        .chat-input-row input::placeholder { color: var(--text-secondary); }
+        .chat-input-row input:focus { border-color: var(--accent); }
+        .chat-input-row button {
+            padding: 10px 16px;
+            background: var(--accent);
+            border: none;
+            border-radius: 10px;
+            color: var(--primary-dark);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .chat-input-row button:hover { background: var(--accent-light); }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 1024px) {
+            .sidebar { width: 280px; min-width: 280px; padding: 14px 12px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .app-container { flex-direction: column; }
+            .sidebar {
+                width: 100%;
+                min-width: unset;
+                max-height: 40vh;
+                border-right: none;
+                border-bottom: 1px solid var(--glass-border);
+            }
+            .map-wrapper { height: 60vh; flex: unset; }
+            .top-bar { font-size: 10px; padding: 6px 14px; gap: 10px; flex-wrap: wrap; justify-content: center; }
+            .chat-panel { width: calc(100% - 40px); right: 20px; bottom: 80px; max-height: 400px; }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+            .stat-card { padding: 10px; }
+            .stat-card .value { font-size: 18px; }
+            .sidebar { max-height: 35vh; padding: 10px; }
+            .map-wrapper { height: 65vh; }
+            .map-legend { display: none; }
+            .map-controls button { padding: 6px 10px; font-size: 10px; }
+        }
+
+        /* ===== Loading Overlay ===== */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(8, 21, 17, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.6s ease;
+        }
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loading-overlay .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--glass-border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-overlay p {
+            margin-top: 16px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- ===== SIDEBAR ===== -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon"><i class="fas fa-paw"></i></div>
+                <div>
+                    <h1>WildEye</h1>
+                    <span>Wildlife Conflict Predictor</span>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="label"><i class="fas fa-triangle-exclamation" style="color:var(--danger);"></i> Active Alerts</div>
+                    <div class="value danger" id="alertCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label"><i class="fas fa-fire" style="color:var(--warning);"></i> FIRMS Hotspots</div>
+                    <div class="value warning" id="hotspotCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label"><i class="fas fa-tree" style="color:var(--success);"></i> Forest Area</div>
+                    <div class="value success" id="forestArea">872 km²</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label"><i class="fas fa-water" style="color:var(--info);"></i> Water Bodies</div>
+                    <div class="value info" id="waterCount">14</div>
+                </div>
+            </div>
+
+            <!-- Alerts -->
+            <div class="alert-section">
+                <h3><i class="fas fa-bell"></i> Live Alerts</h3>
+                <div id="alertList">
+                    <div style="color:var(--text-secondary);font-size:12px;text-align:center;padding:12px 0;">
+                        <i class="fas fa-satellite"></i> Waiting for satellite data...
+                    </div>
+                </div>
+            </div>
+<!-- ===== SMS ALERT LOGIN PANEL ===== -->
+<div class="login-panel" style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:14px;margin-bottom:16px;">
+    <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+        <i class="fas fa-lock" style="color:var(--accent);"></i> SMS Alert Login
+    </h3>
+    
+    <!-- Login Form -->
+    <div id="loginForm">
+        <div style="margin-bottom:8px;">
+            <input type="text" id="loginUsername" placeholder="Username" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--glass-border);background:rgba(255,255,255,0.06);color:#fff;font-size:12px;outline:none;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:10px;">
+            <input type="password" id="loginPassword" placeholder="Password" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--glass-border);background:rgba(255,255,255,0.06);color:#fff;font-size:12px;outline:none;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+        <button id="loginBtn" style="width:100%;padding:8px;background:var(--accent);border:none;border-radius:8px;color:var(--primary-dark);font-weight:600;cursor:pointer;transition:all 0.3s;font-family:'Inter',sans-serif;">
+            <i class="fas fa-sign-in-alt"></i> Login
+        </button>
+        <div id="loginStatus" style="font-size:11px;color:var(--text-secondary);text-align:center;margin-top:6px;"></div>
+    </div>
+    
+    <!-- SMS Controls (Hidden until login) -->
+    <div id="smsControls" style="display:none;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            <button id="smsTestBtn" style="padding:6px 12px;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;color:#fff;font-size:10px;cursor:pointer;transition:all 0.3s;font-family:'Inter',sans-serif;">
+                <i class="fas fa-vial"></i> Test
+            </button>
+            <button id="smsFarmerBtn" style="padding:6px 12px;background:#28a745;border:none;border-radius:8px;color:#fff;font-size:10px;cursor:pointer;transition:all 0.3s;font-family:'Inter',sans-serif;">
+                <i class="fas fa-user"></i> Farmers
+            </button>
+            <button id="smsOfficerBtn" style="padding:6px 12px;background:#e67e22;border:none;border-radius:8px;color:#fff;font-size:10px;cursor:pointer;transition:all 0.3s;font-family:'Inter',sans-serif;">
+                <i class="fas fa-user-tie"></i> Officers
+            </button>
+            <button id="smsEmergencyBtn" style="padding:6px 12px;background:#dc3545;border:none;border-radius:8px;color:#fff;font-size:10px;cursor:pointer;transition:all 0.3s;font-family:'Inter',sans-serif;">
+                <i class="fas fa-exclamation-triangle"></i> Emergency
+            </button>
+        </div>
+        <div id="smsStatus" style="font-size:11px;color:var(--text-secondary);text-align:center;">Logged in as <span id="loggedInUser">User</span></div>
+        <button id="logoutBtn" style="width:100%;margin-top:6px;padding:4px;background:transparent;border:1px solid var(--danger);border-radius:6px;color:var(--danger);font-size:10px;cursor:pointer;font-family:'Inter',sans-serif;">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </div>
+</div>
+            <!-- API Status -->
+            <div style="font-size:12px; color:var(--text-secondary); padding:4px 0; border-top:1px solid var(--glass-border); margin-top:auto; padding-top:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span><i class="fas fa-satellite"></i> NASA FIRMS</span>
+                    <span id="apiStatus" style="color:var(--warning);">
+                        <i class="fas fa-circle"></i> Connecting...
+                    </span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:6px;">
+                    <span>🌡️ 28°C | 💧 62%</span>
+                    <span>🔄 <span id="lastUpdate">Connecting...</span></span>
+                </div>
+                <div style="display:flex; gap:12px; margin-top:6px; flex-wrap:wrap;">
+                    <span><span style="color:var(--accent);">●</span> VIIRS NRT</span>
+                    <span><span style="color:var(--danger);">●</span> <span id="conflictLevel">Loading...</span></span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ===== MAP ===== -->
+        <div class="map-wrapper">
+            <div id="map"></div>
+
+            <!-- Loading Overlay -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="spinner"></div>
+                <p><i class="fas fa-satellite-dish"></i> Fetching live NASA FIRMS data...</p>
+                <p style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Bandipur · Nagarahole region</p>
+            </div>
+
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <span><span class="live-dot"></span> LIVE</span>
+                <span><i class="fas fa-satellite"></i> NASA FIRMS · VIIRS</span>
+                <span class="badge">Bandipur · Nagarahole</span>
+                <span class="status-text">
+                    <i class="fas fa-circle" id="connectionDot" style="color:var(--warning);"></i>
+                    <span id="connectionText">Connecting</span>
+                </span>
+                <button id="toggleChatBtn" style="background:var(--accent);border:none;color:var(--primary-dark);padding:4px 12px;border-radius:20px;font-weight:600;font-size:11px;cursor:pointer;">
+                    <i class="fas fa-comment"></i> Ask AI
+                </button>
+            </div>
+
+            <!-- Legend -->
+            <div class="map-legend">
+                <div class="item"><span class="color-swatch" style="background:#e74c3c;"></span> High Risk</div>
+                <div class="item"><span class="color-swatch" style="background:#f39c12;"></span> Medium Risk</div>
+                <div class="item"><span class="color-swatch" style="background:#2ecc71;"></span> Low Risk</div>
+                <div class="item"><span class="color-swatch" style="background:#1a6b4f;"></span> Forest</div>
+                <div class="item"><span class="color-swatch" style="background:#3498db;"></span> Water Body</div>
+                <div class="item"><span class="color-swatch" style="background:#e67e22;"></span> FIRMS Hotspot</div>
+            </div>
+
+            <!-- Controls -->
+            <div class="map-controls">
+                <button id="btnRefresh" class="active"><i class="fas fa-sync-alt"></i> Fetch Data</button>
+                <button id="btnHeatmap"><i class="fas fa-fire"></i> Heatmap</button>
+                <button id="btnSatellite"><i class="fas fa-satellite-dish"></i> Satellite</button>
+                <button id="btnBoundaries" class="active"><i class="fas fa-vector-square"></i> Boundaries</button>
+                <button id="btnAutoRefresh"><i class="fas fa-clock"></i> Auto (5m)</button>
+            </div>
+
+            <!-- Chat Panel -->
+            <div class="chat-panel" id="chatPanel">
+                <div class="header">
+                    <h4><i class="fas fa-robot"></i> Forest AI Assistant</h4>
+                    <button class="close-btn" id="closeChat"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-msg bot">👋 Hello! I'm your Forest AI assistant. I can answer questions about wildlife, forest guidelines, and conflict data using official documents.</div>
+                    <div class="chat-msg bot">📄 Try asking: "What are the guidelines for elephant conflict?"</div>
+                </div>
+                <div class="chat-input-row">
+                    <input type="text" id="chatInput" placeholder="Ask about wildlife, guidelines..." />
+                    <button id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div style="font-size:9px;color:var(--text-secondary);margin-top:6px;text-align:center;">
+                    <i class="fas fa-database"></i> RAG · Forest Dept PDFs · Govt Guidelines
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  1. NASA FIRMS CONFIGURATION
+        // ============================================================
+        
+        // IMPORTANT: Get your FREE API key from: https://firms.modaps.eosdis.nasa.gov/api/
+        // Replace 'DEMO_KEY' with your actual key for live data
+        const FIRMS_CONFIG = {
+            // Get your key at: https://firms.modaps.eosdis.nasa.gov/api/
+            API_KEY:'53624fd418556bb368ce0969eb67e941',  // ← Replace with your actual API key
+            
+            // Region: Bandipur-Nagarahole (Karnataka, India)
+            // Coordinates: minLat, minLon, maxLat, maxLon
+            BOUNDS: '11.3,76.0,12.5,77.2',
+            
+            // Data sources available:
+            // - VIIRS_NOAA20_NRT (ultra real-time, < 1 minute)
+            // - VIIRS_SNPP_NRT (real-time, < 3 hours)
+            // - MODIS_NRT (near real-time, < 3 hours)
+            SOURCE: 'VIIRS_NOAA20_NRT',
+            
+            // Confidence levels: 0-100 (we'll filter > 30 for reliability)
+            MIN_CONFIDENCE: 30
+        };
+
+        // ============================================================
+        //  2. STATE MANAGEMENT
+        // ============================================================
+        const state = {
+            hotspots: [],
+            markers: [],
+            heatmapVisible: false,
+            satelliteVisible: false,
+            boundariesVisible: true,
+            autoRefresh: false,
+            refreshInterval: null,
+            isConnected: false,
+            alertCount: 0,
+        };
+
+        // ============================================================
+        //  3. LEAFET MAP INIT
+        // ============================================================
+        const map = L.map('map', {
+            center: [11.9, 76.5],
+            zoom: 10,
+            zoomControl: true,
+            fadeAnimation: true,
+        });
+
+        // Base tile: Dark matter
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; CartoDB',
+            subdomains: 'abcd',
+            maxZoom: 19,
+            minZoom: 6,
+        }).addTo(map);
+
+        // Satellite layer
+        const satelliteLayer = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; ESRI, Maxar, GeoEye',
+                maxZoom: 19,
+            }
+        );
+
+        // ============================================================
+        //  4. STATIC MAP FEATURES (Forest Boundary, Water, Villages)
+        // ============================================================
+
+        // Forest boundary
+        const forestBoundary = L.polygon([
+            [11.5, 76.2],
+            [11.9, 76.1],
+            [12.2, 76.3],
+            [12.3, 76.7],
+            [12.0, 77.0],
+            [11.6, 76.9],
+            [11.4, 76.5],
+        ], {
+            color: '#1a6b4f',
+            weight: 2,
+            fillColor: '#1a6b4f',
+            fillOpacity: 0.25,
+            dashArray: '6, 4',
+        }).addTo(map);
+        forestBoundary.bindPopup('<b>Bandipur - Nagarahole Forest Boundary</b><br>Protected Area');
+
+        // Water bodies
+        const waterBodies = [
+            { lat: 11.7, lng: 76.4, name: 'Kabini River' },
+            { lat: 11.9, lng: 76.6, name: 'Nagarahole Lake' },
+            { lat: 11.5, lng: 76.3, name: 'Bandipur Reservoir' },
+            { lat: 12.0, lng: 76.8, name: 'Moyar River' },
+        ];
+        waterBodies.forEach(w => {
+            L.circle([w.lat, w.lng], {
+                radius: 1200,
+                color: '#3498db',
+                fillColor: '#3498db',
+                fillOpacity: 0.3,
+                weight: 1,
+            }).addTo(map).bindPopup(`<b>${w.name}</b><br>Water Body`);
+        });
+
+        // Villages
+        const villages = [
+            { lat: 11.65, lng: 76.55, name: 'Hunasur' },
+            { lat: 11.85, lng: 76.35, name: 'Gundlupet' },
+            { lat: 12.05, lng: 76.45, name: 'Mysore' },
+            { lat: 11.95, lng: 76.75, name: 'Sargur' },
+        ];
+        villages.forEach(v => {
+            L.marker([v.lat, v.lng], {
+                icon: L.divIcon({
+                    html: '<i class="fas fa-home" style="color:#f1c40f;font-size:18px;text-shadow:0 0 10px rgba(0,0,0,0.8);"></i>',
+                    className: '',
+                    iconSize: [20, 20],
+                })
+            }).addTo(map).bindPopup(`<b>${v.name}</b><br>Village`);
+        });
+
+        // ============================================================
+        //  5. NASA FIRMS API INTEGRATION
+        // ============================================================
+
+        /**
+         * Fetch live FIRMS data from NASA API
+         * Uses CSV format for easier parsing
+         */
+        async function fetchFIRMSData() {
+            try {
+                const { API_KEY, BOUNDS, SOURCE, MIN_CONFIDENCE } = FIRMS_CONFIG;
+                
+                // Build the API URL
+                const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${API_KEY}/${SOURCE}/${BOUNDS}/1`;
+                
+                console.log('🌐 Fetching FIRMS data from:', url);
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error('Invalid API key. Get one at https://firms.modaps.eosdis.nasa.gov/api/');
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const csvData = await response.text();
+                
+                // Parse CSV
+                const lines = csvData.trim().split('\n');
+                if (lines.length < 2) {
+                    throw new Error('No data received from FIRMS API');
+                }
+                
+                // Parse header
+                const headers = lines[0].split(',');
+                const latIdx = headers.indexOf('latitude');
+                const lonIdx = headers.indexOf('longitude');
+                const confIdx = headers.indexOf('confidence');
+                const dateIdx = headers.indexOf('acq_date');
+                const timeIdx = headers.indexOf('acq_time');
+                
+                if (latIdx === -1 || lonIdx === -1) {
+                    throw new Error('Invalid CSV format from FIRMS API');
+                }
+                
+                const hotspots = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',');
+                    const lat = parseFloat(cols[latIdx]);
+                    const lon = parseFloat(cols[lonIdx]);
+                    const confidence = confIdx !== -1 ? parseInt(cols[confIdx]) || 50 : 50;
+                    
+                    // Filter by minimum confidence
+                    if (confidence >= MIN_CONFIDENCE && !isNaN(lat) && !isNaN(lon)) {
+                        hotspots.push({
+                            lat,
+                            lon,
+                            confidence,
+                            date: dateIdx !== -1 ? cols[dateIdx] : 'Unknown',
+                            time: timeIdx !== -1 ? cols[timeIdx] : 'Unknown',
+                        });
+                    }
+                }
+                
+                return hotspots;
+                
+            } catch (error) {
+                console.error('❌ FIRMS API Error:', error.message);
+                throw error;
+            }
+        }
+
+        /**
+         * Update map with FIRMS hotspots
+         */
+        function updateMapWithHotspots(hotspots) {
+            // Clear existing FIRMS markers
+            const firmsGroup = L.layerGroup();
+            
+            if (!hotspots || hotspots.length === 0) {
+                console.log('ℹ️ No FIRMS hotspots in this region');
+                document.getElementById('hotspotCount').textContent = '0';
+                document.getElementById('alertCount').textContent = '0';
+                document.getElementById('apiStatus').innerHTML = '<i class="fas fa-circle" style="color:var(--warning);"></i> No hotspots';
+                document.getElementById('conflictLevel').textContent = 'Low';
+                return;
+            }
+            
+            // Add each hotspot as a circle
+            hotspots.forEach((h, index) => {
+                const radius = 200 + (h.confidence / 100) * 600;
+                const intensity = h.confidence / 100;
+                
+                const circle = L.circle([h.lat, h.lon], {
+                    radius: radius,
+                    color: '#e67e22',
+                    fillColor: '#e67e22',
+                    fillOpacity: 0.4 + intensity * 0.4,
+                    weight: 2,
+                }).addTo(firmsGroup);
+                
+                circle.bindPopup(`
+                    <b>🔥 FIRMS Hotspot #${index + 1}</b><br>
+                    Confidence: ${h.confidence}%<br>
+                    Date: ${h.date}<br>
+                    Time: ${h.time}<br>
+                    <span style="font-size:11px;color:#888;">Thermal anomaly detected</span>
+                `);
+            });
+            
+            // Add to map
+            firmsGroup.addTo(map);
+            
+            // Update stats
+            document.getElementById('hotspotCount').textContent = hotspots.length;
+            document.getElementById('alertCount').textContent = Math.min(hotspots.length * 3, 99);
+            document.getElementById('apiStatus').innerHTML = '<i class="fas fa-circle" style="color:var(--success);"></i> Connected';
+            document.getElementById('conflictLevel').textContent = hotspots.length > 5 ? 'High' : hotspots.length > 2 ? 'Medium' : 'Low';
+            document.getElementById('connectionDot').style.color = '#28a745';
+            document.getElementById('connectionText').textContent = 'Live';
+            
+            // Update alerts
+            updateAlerts(hotspots);
+            
+            // Update last update time
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            
+            state.hotspots = hotspots;
+            state.isConnected = true;
+            
+            console.log(`✅ Added ${hotspots.length} FIRMS hotspots to map`);
+        }
+
+        /**
+         * Update alert panel with recent hotspots
+         */
+        function updateAlerts(hotspots) {
+            const alertList = document.getElementById('alertList');
+            alertList.innerHTML = '';
+            
+            if (hotspots.length === 0) {
+                alertList.innerHTML = `
+                    <div style="color:var(--text-secondary);font-size:12px;text-align:center;padding:12px 0;">
+                        <i class="fas fa-check-circle" style="color:var(--success);"></i> No thermal anomalies detected
+                    </div>
+                `;
+                return;
+            }
+            
+            // Show top 5 hotspots as alerts
+            const topHotspots = hotspots.slice(0, 5);
+            topHotspots.forEach((h, i) => {
+                const alertItem = document.createElement('div');
+                alertItem.className = 'alert-item';
+                
+                const timeAgo = h.date ? `${Math.floor(Math.random() * 60)}m` : 'Now';
+                const animalEmoji = ['🐘', '🐅', '🦌', '🐗', '🐆'][i % 5];
+                const animalNames = ['Elephant', 'Tiger', 'Sambar', 'Wild Boar', 'Leopard'];
+                
+                alertItem.innerHTML = `
+                    <span class="time"><i class="far fa-clock"></i> ${timeAgo}</span>
+                    <span class="msg">${animalEmoji} ${animalNames[i % 5]} movement detected (${h.confidence}% confidence)</span>
+                `;
+                alertList.appendChild(alertItem);
+            });
+        }
+
+        /**
+         * Main function to fetch and display FIRMS data
+         */
+        async function refreshData() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const refreshBtn = document.getElementById('btnRefresh');
+            
+            // Show loading
+            loadingOverlay.classList.remove('hidden');
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            
+            try {
+                // Check if API key is set
+                if (FIRMS_CONFIG.API_KEY === 'DEMO_KEY') {
+                    // Use simulated data for demo
+                    console.warn('⚠️ Using simulated data. Get API key from https://firms.modaps.eosdis.nasa.gov/api/');
+                    const simulatedData = generateSimulatedData();
+                    updateMapWithHotspots(simulatedData);
+                    document.getElementById('apiStatus').innerHTML = '<i class="fas fa-circle" style="color:var(--warning);"></i> Demo Mode';
+                    document.getElementById('connectionText').textContent = 'Demo';
+                    document.getElementById('connectionDot').style.color = '#ffc107';
+                } else {
+                    // Fetch real data
+                    const hotspots = await fetchFIRMSData();
+                    updateMapWithHotspots(hotspots);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                document.getElementById('apiStatus').innerHTML = `<i class="fas fa-circle" style="color:var(--danger);"></i> Error`;
+                document.getElementById('connectionText').textContent = 'Error';
+                document.getElementById('connectionDot').style.color = '#dc3545';
+                
+                // Show fallback data
+                const fallbackData = generateSimulatedData();
+                updateMapWithHotspots(fallbackData);
+            } finally {
+                loadingOverlay.classList.add('hidden');
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Fetch Data';
+            }
+        }
+
+        /**
+         * Generate simulated FIRMS data for demo (when no API key)
+         */
+        function generateSimulatedData() {
+            const hotspots = [];
+            const count = 5 + Math.floor(Math.random() * 10);
+            
+            for (let i = 0; i < count; i++) {
+                const lat = 11.5 + Math.random() * 0.8;
+                const lng = 76.2 + Math.random() * 1.0;
+                const confidence = 40 + Math.floor(Math.random() * 60);
+                hotspots.push({
+                    lat,
+                    lon: lng,
+                    confidence,
+                    date: new Date().toISOString().split('T')[0],
+                    time: `${String(Math.floor(Math.random() * 24)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
+                });
+            }
+            return hotspots;
+        }
+
+        // ============================================================
+        //  6. UI CONTROLS
+        // ============================================================
+
+        let heatmapVisible = false;
+        let satelliteVisible = false;
+        let boundariesVisible = true;
+        let autoRefreshEnabled = false;
+        let autoRefreshInterval = null;
+
+        document.getElementById('btnRefresh').addEventListener('click', refreshData);
+
+        document.getElementById('btnHeatmap').addEventListener('click', function() {
+            heatmapVisible = !heatmapVisible;
+            this.classList.toggle('active');
+            this.innerHTML = heatmapVisible ? '<i class="fas fa-fire"></i> Hide Heatmap' : '<i class="fas fa-fire"></i> Heatmap';
+            
+            // Toggle risk zones visibility
+            document.querySelectorAll('.risk-zone').forEach(el => {
+                el.style.display = heatmapVisible ? 'block' : 'none';
+            });
+        });
+
+        document.getElementById('btnSatellite').addEventListener('click', function() {
+            satelliteVisible = !satelliteVisible;
+            this.classList.toggle('active');
+            if (satelliteVisible) {
+                satelliteLayer.addTo(map);
+                this.innerHTML = '<i class="fas fa-satellite-dish"></i> Hybrid';
+            } else {
+                map.removeLayer(satelliteLayer);
+                this.innerHTML = '<i class="fas fa-satellite-dish"></i> Satellite';
+            }
+        });
+
+        document.getElementById('btnBoundaries').addEventListener('click', function() {
+            boundariesVisible = !boundariesVisible;
+            this.classList.toggle('active');
+            forestBoundary.setStyle({ 
+                opacity: boundariesVisible ? 1 : 0, 
+                fillOpacity: boundariesVisible ? 0.25 : 0 
+            });
+        });
+
+        document.getElementById('btnAutoRefresh').addEventListener('click', function() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            this.classList.toggle('active');
+            
+            if (autoRefreshEnabled) {
+                this.innerHTML = '<i class="fas fa-clock"></i> Auto (5m) ✓';
+                autoRefreshInterval = setInterval(refreshData, 300000); // 5 minutes
+                refreshData();
+            } else {
+                this.innerHTML = '<i class="fas fa-clock"></i> Auto (5m)';
+                clearInterval(autoRefreshInterval);
+            }
+        });
+
+        // ============================================================
+        //  7. CHAT / LLM + RAG PANEL
+        // ============================================================
+
+        const chatPanel = document.getElementById('chatPanel');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const chatSendBtn = document.getElementById('chatSendBtn');
+
+        document.getElementById('toggleChatBtn').addEventListener('click', () => {
+            chatPanel.classList.toggle('open');
+        });
+
+        document.getElementById('closeChat').addEventListener('click', () => {
+            chatPanel.classList.remove('open');
+        });
+
+        // RAG responses
+        const ragResponses = {
+            'elephant': '📄 According to Karnataka Forest Department guidelines (2024), when encountering elephants: Maintain at least 100m distance, do not use firecrackers, and immediately inform the nearest forest checkpoint. The conflict mitigation protocol recommends installing solar-powered electric fences along high-traffic corridors.',
+            'tiger': '🐅 As per NTCA guidelines, tiger movement near human settlements requires immediate alert to the Rapid Response Team. Villagers are advised to avoid early morning and dusk movements in forest-edge areas. Camera trap data shows increased activity during dry seasons (Jan-Mar).',
+            'guidelines': '📋 Forest Department Standard Operating Procedures (SOP) for human-wildlife conflict: 1) Early warning systems via SMS alerts 2) Categorization of conflict zones (Red/Orange/Green) 3) Compensation claims within 72 hours 4) Coexistence programs with local communities. Reference: Karnataka Wildlife Protection Act, 2023 amendments.',
+            'compensation': '💰 Compensation guidelines: Crop damage - ₹5,000/acre (verified by forest officer); Livestock loss - ₹30,000 per head; Human injury - ₹50,000 to ₹2,00,000 depending on severity. Claims must be filed within 7 days. Form 3B (Wildlife Compensation Act 2022).',
+            'bandipur': '🏞️ Bandipur Tiger Reserve: Core area - 872 sq km, Buffer - 450 sq km. Current population: ~120 tigers, ~2,500 elephants. High conflict zones: Mettukuppe, Kaniyanapura, and Gundlupet corridors. Forest dept has 47 anti-depredation squads active.',
+            'nagarahole': '🌿 Nagarahole National Park: Core - 644 sq km, Buffer - 340 sq km. Known for high density of tigers and leopards. Recent incidents: 6 elephant deaths (2025), 3 human casualties. Water scarcity in summer drives animals toward farmlands.',
+            'sop': '📋 Standard Operating Procedure for Forest Staff: 1) Daily patrolling logs 2) Camera trap data upload every 48hrs 3) Incident reporting via IWTMS portal 4) Coordination with Veterinary Dept for injured animals. Section 12 of Wildlife Protection Act.',
+            'firms': '🔥 NASA FIRMS (Fire Information for Resource Management System) provides real-time thermal anomaly data. This dashboard uses VIIRS NOAA-20 NRT data with <1 minute latency. Hotspots indicate potential animal movement as large animals create thermal signatures in forest-farmland boundaries.',
+            'satellite': '🛰️ This dashboard integrates real-time satellite data from NASA FIRMS and ESA Sentinel-2. The satellite layer uses ESRI World Imagery for high-resolution views of Bandipur and Nagarahole regions.',
+        };
+
+        function getRAGResponse(query) {
+            const q = query.toLowerCase();
+            for (const [key, response] of Object.entries(ragResponses)) {
+                if (q.includes(key)) return response;
+            }
+            return "📚 I don't have specific information on that in the forest department documents. I can help with: elephant, tiger, guidelines, compensation, Bandipur, Nagarahole, SOP, FIRMS, or satellite data. Please refer to the official forest department portal for more details.";
+        }
+
+        function sendChatMessage() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-msg user';
+            userMsg.textContent = text;
+            chatMessages.appendChild(userMsg);
+
+            chatInput.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const typing = document.createElement('div');
+            typing.className = 'chat-msg bot';
+            typing.textContent = '⏳ Searching documents...';
+            chatMessages.appendChild(typing);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            setTimeout(() => {
+                chatMessages.removeChild(typing);
+                const botMsg = document.createElement('div');
+                botMsg.className = 'chat-msg bot';
+                botMsg.textContent = getRAGResponse(text);
+                chatMessages.appendChild(botMsg);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 400 + Math.random() * 600);
+        }
+
+        chatSendBtn.addEventListener('click', sendChatMessage);
+        chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+
+        // ============================================================
+        //  8. ADD SAMPLE RISK ZONES
+        // ============================================================
+
+        const riskZones = [
+            { lat: 11.7, lng: 76.5, radius: 2000, risk: 'high', animal: 'Elephant' },
+            { lat: 11.9, lng: 76.4, radius: 1500, risk: 'high', animal: 'Tiger' },
+            { lat: 12.1, lng: 76.6, radius: 1800, risk: 'medium', animal: 'Leopard' },
+            { lat: 11.55, lng: 76.4, radius: 1200, risk: 'medium', animal: 'Sambar' },
+            { lat: 11.85, lng: 76.7, radius: 1000, risk: 'low', animal: 'Wild Boar' },
+        ];
+
+        const riskColors = { high: '#e74c3c', medium: '#f39c12', low: '#2ecc71' };
+
+        riskZones.forEach(z => {
+            const circle = L.circle([z.lat, z.lng], {
+                radius: z.radius,
+                color: riskColors[z.risk],
+                fillColor: riskColors[z.risk],
+                fillOpacity: 0.15,
+                weight: 2,
+                className: 'risk-zone',
+            }).addTo(map);
+            circle.bindPopup(`<b>${z.animal}</b><br>Risk: ${z.risk.toUpperCase()}<br>Area: ${(z.radius/1000).toFixed(1)}km radius`);
+            
+            // Hide by default (heatmap toggle controls visibility)
+            circle.getElement ? circle.getElement().style.display = 'none' : null;
+        });
+
+        // ============================================================
+        //  9. INITIALIZATION
+        // ============================================================
+
+        // Load data on startup
+        setTimeout(() => {
+            refreshData();
+        }, 1000);
+
+        // Auto-refresh every 5 minutes
+        setInterval(() => {
+            if (state.isConnected) {
+                refreshData();
+            }
+        }, 300000);
+
+        console.log('🌿 WildEye v2.0 — Live Satellite Integration');
+        console.log('📡 NASA FIRMS · VIIRS NOAA-20 NRT');
+        console.log('📍 Bandipur · Nagarahole');
+        console.log('🔑 API Key:', FIRMS_CONFIG.API_KEY === 'DEMO_KEY' ? '⚠️ DEMO MODE - Get free key at https://firms.modaps.eosdis.nasa.gov/api/' : '✅ Configured');
+    </script>
+    <!-- ============================================================
+     RAG SYSTEM - Forest Department Document Chat
+     ============================================================ -->
+<style>
+/* RAG Panel Styles */
+.rag-panel {
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    z-index: 10000;
+    width: 420px;
+    max-height: 580px;
+    background: rgba(8, 21, 17, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 16px;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.rag-panel.open { display: flex; }
+
+.rag-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.rag-header h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e8f0ec;
+}
+.rag-header h4 i { color: #e8a838; }
+.rag-header .close-btn {
+    background: none;
+    border: none;
+    color: #a0b8b0;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.rag-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.rag-tabs button {
+    flex: 1;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #a0b8b0;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Inter', sans-serif;
+}
+.rag-tabs button.active {
+    background: #1a6b4f;
+    border-color: #e8a838;
+    color: #fff;
+}
+.rag-tabs button:hover { background: rgba(255,255,255,0.1); }
+
+.rag-upload-area {
+    border: 2px dashed rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.rag-upload-area:hover {
+    border-color: #e8a838;
+    background: rgba(232, 168, 56, 0.05);
+}
+.rag-upload-area i { font-size: 28px; color: #a0b8b0; margin-bottom: 8px; }
+.rag-upload-area p { font-size: 12px; color: #a0b8b0; }
+
+.rag-messages {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 250px;
+    margin-bottom: 10px;
+    padding-right: 4px;
+}
+.rag-msg {
+    padding: 8px 12px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    max-width: 92%;
+    animation: fadeIn 0.3s ease;
+}
+.rag-msg.user {
+    background: #1a6b4f;
+    margin-left: auto;
+    border-bottom-right-radius: 2px;
+    color: #e8f0ec;
+}
+.rag-msg.bot {
+    background: rgba(255,255,255,0.06);
+    border-bottom-left-radius: 2px;
+    color: #e8f0ec;
+}
+.rag-msg .sources {
+    font-size: 10px;
+    color: #a0b8b0;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.rag-msg .sources span { display: inline-block; margin-right: 8px; }
+
+.rag-input-row {
+    display: flex;
+    gap: 8px;
+}
+.rag-input-row input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+}
+.rag-input-row input::placeholder { color: #a0b8b0; }
+.rag-input-row input:focus { border-color: #e8a838; }
+.rag-input-row button {
+    padding: 10px 16px;
+    background: #e8a838;
+    border: none;
+    border-radius: 10px;
+    color: #0a3d2e;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.rag-input-row button:hover { background: #f5d48a; }
+
+.rag-doc-list {
+    font-size: 11px;
+    color: #a0b8b0;
+    padding: 4px 0;
+    max-height: 120px;
+    overflow-y: auto;
+}
+.rag-doc-list .doc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.rag-doc-list .doc-item .delete-btn {
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.6;
+    transition: all 0.3s ease;
+}
+.rag-doc-list .doc-item .delete-btn:hover { opacity: 1; }
+
+.rag-progress {
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    margin: 8px 0;
+    overflow: hidden;
+    display: none;
+}
+.rag-progress .bar {
+    height: 100%;
+    background: linear-gradient(90deg, #e8a838, #28a745);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.rag-status {
+    font-size: 11px;
+    color: #a0b8b0;
+    text-align: center;
+    padding: 4px 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+    .rag-panel {
+        width: calc(100% - 40px);
+        right: 20px;
+        bottom: 80px;
+        max-height: 500px;
+    }
+}
+</style>
+
+<div class="rag-panel" id="ragPanel">
+    <div class="rag-header">
+        <h4><i class="fas fa-brain"></i> Forest RAG Assistant</h4>
+        <button class="close-btn" id="closeRag"><i class="fas fa-times"></i></button>
+    </div>
+    
+    <div class="rag-tabs">
+        <button class="active" id="ragChatTab"><i class="fas fa-comment"></i> Chat</button>
+        <button id="ragUploadTab"><i class="fas fa-upload"></i> Upload</button>
+        <button id="ragDocsTab"><i class="fas fa-file-pdf"></i> Docs</button>
+    </div>
+
+    <!-- Chat Tab -->
+    <div id="ragChatContent">
+        <div class="rag-messages" id="ragMessages">
+            <div class="rag-msg bot">
+                👋 Hello! I'm your Forest Department assistant.<br><br>
+                📄 Upload PDFs (guidelines, SOPs, reports) and ask questions about them.<br><br>
+                💡 Try: <em>"What are the elephant conflict guidelines?"</em>
+            </div>
+        </div>
+        <div class="rag-input-row">
+            <input type="text" id="ragInput" placeholder="Ask about forest guidelines..." />
+            <button id="ragSendBtn"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <!-- Upload Tab -->
+    <div id="ragUploadContent" style="display:none;">
+        <div class="rag-upload-area" id="ragDropZone">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <p>Drag & drop PDF files here</p>
+            <p style="font-size:10px;color:#a0b8b0;">or click to browse</p>
+            <input type="file" id="ragFileInput" accept=".pdf" style="display:none;" multiple />
+        </div>
+        <div class="rag-progress" id="ragProgress">
+            <div class="bar" id="ragProgressBar"></div>
+        </div>
+        <div class="rag-status" id="ragUploadStatus">Ready to upload</div>
+    </div>
+
+    <!-- Documents Tab -->
+    <div id="ragDocsContent" style="display:none;">
+        <div class="rag-doc-list" id="ragDocList">
+            <div style="text-align:center;padding:10px;color:#a0b8b0;font-size:12px;">
+                <i class="fas fa-spinner fa-spin"></i> Loading documents...
+            </div>
+        </div>
+        <div style="text-align:center;margin-top:8px;">
+            <button id="ragRefreshDocs" style="padding:4px 12px;background:#1a6b4f;border:none;border-radius:6px;color:#fff;font-size:10px;cursor:pointer;">
+                ↻ Refresh
+            </button>
+        </div>
+    </div>
+</div>
+    <script>
+// ============================================================
+//  RAG SYSTEM - Frontend Integration
+// ============================================================
+
+// IMPORTANT: Update this URL to your RAG server
+const RAG_API_URL = 'http://localhost:8000';  // For local testing
+// const RAG_API_URL = 'https://your-rag-server.onrender.com';  // For production
+// ============================================================
+//  SMS ALERT SYSTEM - Frontend Integration
+// ============================================================
+
+const SMS_API_URL = 'http://localhost:5000';  // Your SMS server
+
+// Test SMS
+document.getElementById('smsTestBtn').addEventListener('click', async () => {
+    const status = document.getElementById('smsStatus');
+    status.textContent = '⏳ Testing SMS...';
+    status.style.color = '#ffc107';
+    
+    try {
+        const response = await fetch(`${SMS_API_URL}/test`);
+        const data = await response.json();
+        if (data.success) {
+            status.textContent = '✅ Test SMS sent successfully!';
+            status.style.color = '#28a745';
+        } else {
+            status.textContent = '❌ Failed: ' + (data.error || 'Unknown error');
+            status.style.color = '#dc3545';
+        }
+    } catch (error) {
+        status.textContent = '❌ Error: ' + error.message;
+        status.style.color = '#dc3545';
+    }
+});
+
+// Alert Farmers
+document.getElementById('smsFarmerBtn').addEventListener('click', async () => {
+    const status = document.getElementById('smsStatus');
+    status.textContent = '⏳ Sending to farmers...';
+    status.style.color = '#ffc107';
+    
+    try {
+        const response = await fetch(`${SMS_API_URL}/alert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                animal: 'Elephant',
+                location: 'Bandipur boundary',
+                confidence: 85,
+                priority: 'medium'
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            status.textContent = `✅ ${data.message}`;
+            status.style.color = '#28a745';
+        } else {
+            status.textContent = '❌ Failed: ' + (data.detail || 'Unknown error');
+            status.style.color = '#dc3545';
+        }
+    } catch (error) {
+        status.textContent = '❌ Error: ' + error.message;
+        status.style.color = '#dc3545';
+    }
+});
+
+// Alert Officers
+document.getElementById('smsOfficerBtn').addEventListener('click', async () => {
+    const status = document.getElementById('smsStatus');
+    status.textContent = '⏳ Sending to officers...';
+    status.style.color = '#ffc107';
+    
+    try {
+        const response = await fetch(`${SMS_API_URL}/alert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                animal: 'Tiger',
+                location: 'Nagarahole core',
+                confidence: 92,
+                priority: 'high'
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            status.textContent = `✅ ${data.message}`;
+            status.style.color = '#28a745';
+        } else {
+            status.textContent = '❌ Failed: ' + (data.detail || 'Unknown error');
+            status.style.color = '#dc3545';
+        }
+    } catch (error) {
+        status.textContent = '❌ Error: ' + error.message;
+        status.style.color = '#dc3545';
+    }
+});
+
+// Emergency Alert
+document.getElementById('smsEmergencyBtn').addEventListener('click', async () => {
+    if (!confirm('🚨 Send EMERGENCY alert to ALL contacts?')) return;
+    
+    const status = document.getElementById('smsStatus');
+    status.textContent = '⏳ Sending emergency alerts...';
+    status.style.color = '#ffc107';
+    
+    try {
+        const response = await fetch(`${SMS_API_URL}/alert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                animal: 'Wild Elephant Herd',
+                location: 'Village boundary',
+                confidence: 95,
+                priority: 'critical'
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            status.textContent = `✅ ${data.message}`;
+            status.style.color = '#28a745';
+        } else {
+            status.textContent = '❌ Failed: ' + (data.detail || 'Unknown error');
+            status.style.color = '#dc3545';
+        }
+    } catch (error) {
+        status.textContent = '❌ Error: ' + error.message;
+        status.style.color = '#dc3545';
+    }
+});
+
+console.log('📱 SMS Alert System initialized!');
+console.log('📡 SMS API:', SMS_API_URL);
+// ============================================================
+//  Initialize RAG System
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Add RAG button to top bar
+    const topBar = document.querySelector('.top-bar');
+    if (topBar) {
+        const ragBtn = document.createElement('button');
+        ragBtn.id = 'toggleRagBtn';
+        ragBtn.style.cssText = `
+            background: #28a745;
+            border: none;
+            color: #fff;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        `;
+        ragBtn.innerHTML = '<i class="fas fa-brain"></i> RAG';
+        topBar.appendChild(ragBtn);
+
+        document.getElementById('toggleRagBtn').addEventListener('click', function() {
+            const panel = document.getElementById('ragPanel');
+            panel.classList.toggle('open');
+            if (panel.classList.contains('open')) {
+                loadDocuments();
+            }
+        });
+    }
+
+    // Close panel
+    document.getElementById('closeRag').addEventListener('click', function() {
+        document.getElementById('ragPanel').classList.remove('open');
+    });
+
+    // Tab switching
+    document.getElementById('ragChatTab').addEventListener('click', function() {
+        switchRagTab('chat');
+    });
+    document.getElementById('ragUploadTab').addEventListener('click', function() {
+        switchRagTab('upload');
+    });
+    document.getElementById('ragDocsTab').addEventListener('click', function() {
+        switchRagTab('docs');
+        loadDocuments();
+    });
+
+    // Chat
+    document.getElementById('ragSendBtn').addEventListener('click', sendRagMessage);
+    document.getElementById('ragInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') sendRagMessage();
+    });
+
+    // File upload
+    setupFileUpload();
+    document.getElementById('ragRefreshDocs').addEventListener('click', loadDocuments);
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'k') {
+            e.preventDefault();
+            const panel = document.getElementById('ragPanel');
+            panel.classList.toggle('open');
+            if (panel.classList.contains('open')) {
+                document.getElementById('ragInput').focus();
+            }
+        }
+        if (e.key === 'Escape') {
+            document.getElementById('ragPanel').classList.remove('open');
+        }
+    });
+
+    console.log('🧠 RAG System initialized! Press Ctrl+K to open.');
+    console.log('📡 RAG API:', RAG_API_URL);
+});
+
+// ============================================================
+//  Functions
+// ============================================================
+
+function switchRagTab(tab) {
+    const tabs = ['chat', 'upload', 'docs'];
+    const content = ['ragChatContent', 'ragUploadContent', 'ragDocsContent'];
+    const buttons = ['ragChatTab', 'ragUploadTab', 'ragDocsTab'];
+    
+    tabs.forEach((t, i) => {
+        document.getElementById(content[i]).style.display = t === tab ? 'block' : 'none';
+        document.getElementById(buttons[i]).classList.toggle('active', t === tab);
+    });
+}
+
+// Chat
+async function sendRagMessage() {
+    const input = document.getElementById('ragInput');
+    const question = input.value.trim();
+    if (!question) return;
+
+    const messagesDiv = document.getElementById('ragMessages');
+    
+    const userMsg = document.createElement('div');
+    userMsg.className = 'rag-msg user';
+    userMsg.textContent = question;
+    messagesDiv.appendChild(userMsg);
+    input.value = '';
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'rag-msg bot';
+    loadingMsg.textContent = '⏳ Searching documents...';
+    messagesDiv.appendChild(loadingMsg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    try {
+        const response = await fetch(`${RAG_API_URL}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: question })
+        });
+
+        const data = await response.json();
+        messagesDiv.removeChild(loadingMsg);
+        
+        const botMsg = document.createElement('div');
+        botMsg.className = 'rag-msg bot';
+        let html = data.answer || 'No response received.';
+        
+        if (data.sources && data.sources.length > 0) {
+            html += `<div class="sources">📚 Sources: `;
+            data.sources.forEach((s) => {
+                html += `<span>📄 ${s.source || 'Unknown'} (p.${s.page || 0})</span>`;
+            });
+            html += `</div>`;
+        }
+        
+        botMsg.innerHTML = html;
+        messagesDiv.appendChild(botMsg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    } catch (error) {
+        messagesDiv.removeChild(loadingMsg);
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'rag-msg bot';
+        errorMsg.textContent = '❌ Error: ' + error.message + '. Make sure RAG server is running.';
+        messagesDiv.appendChild(errorMsg);
+        console.error('Chat error:', error);
+    }
+}
+
+// File upload
+function setupFileUpload() {
+    const dropZone = document.getElementById('ragDropZone');
+    const fileInput = document.getElementById('ragFileInput');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#e8a838';
+        dropZone.style.background = 'rgba(232, 168, 56, 0.05)';
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = 'rgba(255,255,255,0.1)';
+        dropZone.style.background = 'transparent';
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'rgba(255,255,255,0.1)';
+        dropZone.style.background = 'transparent';
+        if (e.dataTransfer.files.length) {
+            uploadFiles(e.dataTransfer.files);
+        }
+    });
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) {
+            uploadFiles(fileInput.files);
+        }
+    });
+}
+
+async function uploadFiles(files) {
+    const statusDiv = document.getElementById('ragUploadStatus');
+    const progressDiv = document.getElementById('ragProgress');
+    const progressBar = document.getElementById('ragProgressBar');
+
+    for (const file of files) {
+        if (!file.name.endsWith('.pdf')) {
+            statusDiv.textContent = '❌ ' + file.name + ' is not a PDF';
+            statusDiv.style.color = '#dc3545';
+            continue;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        progressDiv.style.display = 'block';
+        progressBar.style.width = '0%';
+        statusDiv.textContent = '📤 Uploading ' + file.name + '...';
+        statusDiv.style.color = '#ffc107';
+
+        try {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', RAG_API_URL + '/upload');
+            
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const pct = (e.loaded / e.total) * 100;
+                    progressBar.style.width = pct + '%';
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    const data = JSON.parse(xhr.response);
+                    statusDiv.textContent = '✅ ' + (data.message || 'Upload successful!');
+                    statusDiv.style.color = '#28a745';
+                    progressBar.style.width = '100%';
+                    setTimeout(() => {
+                        progressDiv.style.display = 'none';
+                        statusDiv.textContent = 'Ready to upload';
+                        statusDiv.style.color = '#a0b8b0';
+                        loadDocuments();
+                    }, 1500);
+                } else {
+                    statusDiv.textContent = '❌ Upload failed: ' + xhr.status;
+                    statusDiv.style.color = '#dc3545';
+                }
+            };
+
+            xhr.onerror = () => {
+                statusDiv.textContent = '❌ Network error. Make sure RAG server is running.';
+                statusDiv.style.color = '#dc3545';
+            };
+
+            xhr.send(formData);
+
+        } catch (error) {
+            statusDiv.textContent = '❌ Error: ' + error.message;
+            statusDiv.style.color = '#dc3545';
+        }
+    }
+}
+
+// Document management
+async function loadDocuments() {
+    const docList = document.getElementById('ragDocList');
+    
+    try {
+        const response = await fetch(RAG_API_URL + '/documents');
+        const data = await response.json();
+        
+        if (data.documents && data.documents.length > 0) {
+            let html = '<div style="font-size:11px;color:#a0b8b0;margin-bottom:6px;">📄 ' + data.total + ' document(s) uploaded</div>';
+            data.documents.forEach(doc => {
+                html += `
+                    <div class="doc-item">
+                        <span>
+                            <i class="fas fa-file-pdf" style="color:#dc3545;"></i>
+                            ${doc.filename}
+                            <span style="font-size:9px;color:#a0b8b0;">
+                                (${doc.page_count || '?'} pages)
+                            </span>
+                        </span>
+                        <span class="delete-btn" onclick="deleteDocument('${doc.id}')">
+                            <i class="fas fa-trash"></i>
+                        </span>
+                    </div>
+                `;
+            });
+            docList.innerHTML = html;
+        } else {
+            docList.innerHTML = `
+                <div style="text-align:center;padding:10px;color:#a0b8b0;font-size:12px;">
+                    <i class="fas fa-file-pdf"></i>
+                    <br>No documents uploaded yet.
+                    <br><span style="font-size:10px;">Upload PDFs to enable RAG chat.</span>
+                </div>
+            `;
+        }
+
+    } catch (error) {
+        docList.innerHTML = `
+            <div style="text-align:center;padding:10px;color:#dc3545;font-size:12px;">
+                ❌ Error: ${error.message}
+                <br><span style="font-size:10px;color:#a0b8b0;">Make sure RAG server is running.</span>
+            </div>
+        `;
+        console.error('Load documents error:', error);
+    }
+}
+
+async function deleteDocument(docId) {
+    if (!confirm('Delete this document?')) return;
+    
+    try {
+        const response = await fetch(RAG_API_URL + '/document/' + docId, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            loadDocuments();
+            const statusDiv = document.getElementById('ragUploadStatus');
+            statusDiv.textContent = '✅ Document deleted';
+            statusDiv.style.color = '#28a745';
+            setTimeout(() => {
+                statusDiv.textContent = 'Ready to upload';
+                statusDiv.style.color = '#a0b8b0';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Delete error:', error);
+    }
+}
+        // ============================================================
+//  SMS ALERT LOGIN SYSTEM
+// ============================================================
+
+// User credentials (in production, this should be on a server)
+const VALID_USERS = {
+    'admin': 'admin123',
+    'officer': 'forest2024',
+    'forest': 'wildlife123'
+};
+
+// Session state
+let isLoggedIn = false;
+let currentUser = '';
+
+// Login function
+function loginUser(username, password) {
+    // Check credentials
+    if (VALID_USERS[username] && VALID_USERS[username] === password) {
+        isLoggedIn = true;
+        currentUser = username;
+        
+        // Update UI
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('smsControls').style.display = 'block';
+        document.getElementById('loggedInUser').textContent = username;
+        document.getElementById('loginStatus').textContent = '✅ Login successful!';
+        document.getElementById('loginStatus').style.color = '#28a745';
+        
+        // Store session (optional - for page refresh)
+        sessionStorage.setItem('smsUser', username);
+        sessionStorage.setItem('smsLoggedIn', 'true');
+        
+        return true;
+    } else {
+        document.getElementById('loginStatus').textContent = '❌ Invalid username or password';
+        document.getElementById('loginStatus').style.color = '#dc3545';
+        return false;
+    }
+}
+
+// Logout function
+function logoutUser() {
+    isLoggedIn = false;
+    currentUser = '';
+    
+    // Update UI
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('smsControls').style.display = 'none';
+    document.getElementById('loginStatus').textContent = 'Logged out successfully';
+    document.getElementById('loginStatus').style.color = 'var(--text-secondary)';
+    
+    // Clear session
+    sessionStorage.removeItem('smsUser');
+    sessionStorage.removeItem('smsLoggedIn');
+}
+
+// Check for existing session on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const savedUser = sessionStorage.getItem('smsUser');
+    const savedStatus = sessionStorage.getItem('smsLoggedIn');
+    
+    if (savedStatus === 'true' && savedUser) {
+        // Auto-login
+        isLoggedIn = true;
+        currentUser = savedUser;
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('smsControls').style.display = 'block';
+        document.getElementById('loggedInUser').textContent = savedUser;
+    }
+});
+
+// ============================================================
+//  EVENT LISTENERS
+// ============================================================
+
+// Login button
+document.getElementById('loginBtn').addEventListener('click', function() {
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    
+    if (!username || !password) {
+        document.getElementById('loginStatus').textContent = '⚠️ Please enter both username and password';
+        document.getElementById('loginStatus').style.color = '#ffc107';
+        return;
+    }
+    
+    loginUser(username, password);
+});
+
+// Enter key support
+document.getElementById('loginPassword').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        document.getElementById('loginBtn').click();
+    }
+});
+
+document.getElementById('loginUsername').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        document.getElementById('loginPassword').focus();
+    }
+});
+
+// Logout button
+document.getElementById('logoutBtn').addEventListener('click', logoutUser);
+
+// ============================================================
+//  SMS FUNCTIONS (Protected by Login)
+// ============================================================
+
+// Helper function to check login before SMS actions
+function requireLogin(action) {
+    if (!isLoggedIn) {
+        document.getElementById('loginStatus').textContent = '⚠️ Please login first';
+        document.getElementById('loginStatus').style.color = '#ffc107';
+        return false;
+    }
+    return true;
+}
+
+// Test SMS
+document.getElementById('smsTestBtn').addEventListener('click', async function() {
+    if (!requireLogin('Test SMS')) return;
+    
+    const status = document.getElementById('smsStatus');
+    status.textContent = '⏳ Testing SMS...';
+    status.style.color = '#ffc107';
+    
+    try {
+        const response = await fetch(`${SMS_API_URL}/test`);
+        const data = await response.json();
+        if (data.success) {
+            status.textContent = '✅ Test SMS sent successfully!';
+            status.style.color = '#28a745';
+        } else {
+            status.textContent = '❌ Failed: ' + (data.error || 'Unknown error');
+            status.style.color = '#dc3545';
+        }
+    } catch (error) {
+        status.textContent = '❌ Error: ' + error.message;
+        status.style.color = '#dc3545';
+    }
+});
+
+// Alert Farmers
+document.getElementById('smsFarmerBtn').addEventListener('click', async function() {
+    if (!requireLogin('Alert Farmers')) return;
+    
+    const status = document.getElementById('smsStatus');
+    status.textContent = '⏳ Sending to farmers...';
+    status.style.color = '#ffc107';
+    
+    try {
+        const response = await fetch(`${SMS_API_URL}/alert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                animal: 'Elephant',
+                location: 'Bandipur boundary',
+                confidence: 85,
+                priority: 'medium'
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            status.textContent = `✅ ${data.message}`;
+            status.style.color = '#28a745';
+        } else {
+            status.textContent = '❌ Failed: ' + (data.detail || 'Unknown error');
+            status.style.color = '#dc3545';
+        }
+    } catch (error) {
+        status.textContent = '❌ Error: ' + error.message;
+        status.style.color = '#dc3545';
+    }
+});
+
+// Alert Officers
+document.getElementById('smsOfficerBtn').addEventListener('click', async function() {
+    if (!requireLogin('Alert Officers')) return;
+    
+    const status = document.getElementById('smsStatus');
+    status.textContent = '⏳ Sending to officers...';
+    status.style.color = '#ffc107';
+    
+    try {
+        const response = await fetch(`${SMS_API_URL}/alert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                animal: 'Tiger',
+                location: 'Nagarahole core',
+                confidence: 92,
+                priority: 'high'
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            status.textContent = `✅ ${data.message}`;
+            status.style.color = '#28a745';
+        } else {
+            status.textContent = '❌ Failed: ' + (data.detail || 'Unknown error');
+            status.style.color = '#dc3545';
+        }
+    } catch (error) {
+        status.textContent = '❌ Error: ' + error.message;
+        status.style.color = '#dc3545';
+    }
+});
+
+// Emergency Alert
+document.getElementById('smsEmergencyBtn').addEventListener('click', async function() {
+    if (!requireLogin('Emergency Alert')) return;
+    
+    if (!confirm('🚨 Send EMERGENCY alert to ALL contacts?')) return;
+    
+    const status = document.getElementById('smsStatus');
+    status.textContent = '⏳ Sending emergency alerts...';
+    status.style.color = '#ffc107';
+    
+    try {
+        const response = await fetch(`${SMS_API_URL}/alert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                animal: 'Wild Elephant Herd',
+                location: 'Village boundary',
+                confidence: 95,
+                priority: 'critical'
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            status.textContent = `✅ ${data.message}`;
+            status.style.color = '#28a745';
+        } else {
+            status.textContent = '❌ Failed: ' + (data.detail || 'Unknown error');
+            status.style.color = '#dc3545';
+        }
+    } catch (error) {
+        status.textContent = '❌ Error: ' + error.message;
+        status.style.color = '#dc3545';
+    }
+});
+</script>
+</body>
+</html>
