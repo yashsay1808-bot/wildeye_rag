@@ -186,7 +186,7 @@ Answer based only on the documents provided. If you cannot find the answer, say 
 #  API ENDPOINTS
 # ============================================================
 
-@app.get("/")
+@app.get("/stats")
 async def root():
     return {
         "message": "🌿 WildEye RAG System - Forest Department Documents",
