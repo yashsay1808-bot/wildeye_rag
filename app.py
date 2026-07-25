@@ -69,7 +69,6 @@ def get_embeddings():
         )
 
     return embeddings
-)
 
 def get_vector_store(collection_name: str = "forest_department_docs"):
     return Chroma(
