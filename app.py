@@ -58,14 +58,23 @@ class ChatResponse(BaseModel):
 #  EMBEDDINGS & VECTOR STORE
 # ============================================================
 
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+embeddings = None
+
+def get_embeddings():
+    global embeddings
+
+    if embeddings is None:
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+
+    return embeddings
 )
 
 def get_vector_store(collection_name: str = "forest_department_docs"):
     return Chroma(
         collection_name=collection_name,
-        embedding_function=embeddings,
+        embedding_function=get_embeddings(),
         persist_directory=CHROMA_DB_DIR
     )
 
